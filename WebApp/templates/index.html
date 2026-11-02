@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LaptopValue - Machine Learning Laptop Price Estimator</title>
+    <meta name="description" content="Estimate laptop prices from hardware specifications using a machine learning Random Forest regression model.">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+    <!-- Header Navigation -->
+    <header class="site-header">
+        <div class="container header-inner">
+            <a href="/" class="brand-wrapper" id="brand-link">
+                <span class="brand-mark">LaptopValue</span>
+                <span class="brand-badge">ML Estimator</span>
+            </a>
+            <nav aria-label="Main Navigation">
+                <ul class="nav-links">
+                    <li><a href="#estimator" class="nav-link" id="nav-estimator">Price Estimator</a></li>
+                    <li><a href="#about" class="nav-link" id="nav-about">About</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+        <div class="container">
+
+            <!-- Hero Intro Section -->
+            <section class="hero-section" id="estimator">
+                <h1 class="hero-title">Estimate a laptop's price</h1>
+                <p class="hero-subtitle">Enter technical specifications below to generate a model-based price estimate derived from European retail catalog data.</p>
+            </section>
+
+            <!-- Error Notification Banner -->
+            {% if error_message %}
+            <div class="alert alert-error" role="alert" id="error-alert">
+                <svg class="alert-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <div>
+                    <strong>Unable to calculate estimate:</strong> {{ error_message }}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Prediction Result Card -->
+            {% if price_prediction is not none and price_prediction > 0 %}
+            <section class="result-card" id="prediction-result" aria-live="polite">
+                <div class="result-header">
+                    <div>
+                        <span class="result-label">Estimated Price</span>
+                        <div class="result-price-wrap">
+                            <span class="result-currency">€</span>
+                            <span class="result-amount" id="predicted-price-value">{{ price_formatted }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Summary of Evaluated Specs -->
+                <div class="result-specs-summary" aria-label="Selected specifications summary">
+                    <span class="spec-pill">{{ form_data.company|title }}</span>
+                    <span class="spec-pill">
+                        {% if form_data.typename == '2in1convertible' %}2-in-1 Convertible
+                        {% elif form_data.typename == 'gaming' %}Gaming
+                        {% elif form_data.typename == 'netbook' %}Netbook
+                        {% elif form_data.typename == 'notebook' %}Notebook
+                        {% elif form_data.typename == 'ultrabook' %}Ultrabook
+                        {% elif form_data.typename == 'workstation' %}Workstation
+                        {% else %}{{ form_data.typename|title }}{% endif %}
+                    </span>
+                    <span class="spec-pill">
+                        {% if form_data.cpuname == 'intelcorei3' %}Intel Core i3
+                        {% elif form_data.cpuname == 'intelcorei5' %}Intel Core i5
+                        {% elif form_data.cpuname == 'intelcorei7' %}Intel Core i7
+                        {% elif form_data.cpuname == 'amd' %}AMD Processor
+                        {% else %}Other Processor{% endif %}
+                    </span>
+                    <span class="spec-pill">
+                        {% if form_data.gpuname == 'intel' %}Intel GPU
+                        {% elif form_data.gpuname == 'amd' %}AMD GPU
+                        {% elif form_data.gpuname == 'nvidia' %}Nvidia GPU
+                        {% else %}{{ form_data.gpuname|upper }}{% endif %}
+                    </span>
+                    <span class="spec-pill">{{ form_data.ram }} GB RAM</span>
+                    <span class="spec-pill">{{ form_data.weight }} kg</span>
+                    <span class="spec-pill">{{ form_data.opsys|title }} OS</span>
+                    {% if form_data.ips %}<span class="spec-pill">IPS Display</span>{% endif %}
+                    {% if form_data.touchscreen %}<span class="spec-pill">Touchscreen</span>{% endif %}
+                </div>
+
+                <p class="result-notes">
+                    This figure is a statistical estimate generated by a 50-estimator Random Forest regression model. It is based on historical retail catalog listings in Euros (€) and represents an expected baseline value rather than a real-time appraisal.
+                </p>
+
+                <div class="result-actions">
+                    <a href="#estimator-form" class="btn btn-secondary" id="change-specs-btn">Change specifications</a>
+                    <a href="/reset" class="btn btn-secondary" id="reset-result-btn">Start new estimate</a>
+                </div>
+            </section>
+            {% endif %}
+
+            <!-- Prediction Input Form -->
+            <section class="panel-card" id="estimator-form">
+                <div class="panel-header">
+                    <h2 class="panel-title">Hardware Specifications</h2>
+                    <p class="panel-description">All marked fields (<span style="color:#dc2626">*</span>) are required for an accurate calculation.</p>
+                </div>
+
+                <form action="/#prediction-result" method="POST" id="laptop-form" novalidate>
+                    <div class="form-grid">
+
+                        <!-- Brand / Manufacturer -->
+                        <div class="form-group">
+                            <label for="company" class="form-label">Brand / Manufacturer <span class="required">*</span></label>
+                            <select name="company" id="company" class="form-control" required>
+                                <option value="" disabled {% if not form_data.company %}selected{% endif %}>Select brand</option>
+                                <option value="acer" {% if form_data.company == 'acer' %}selected{% endif %}>Acer</option>
+                                <option value="apple" {% if form_data.company == 'apple' %}selected{% endif %}>Apple</option>
+                                <option value="asus" {% if form_data.company == 'asus' %}selected{% endif %}>Asus</option>
+                                <option value="dell" {% if form_data.company == 'dell' %}selected{% endif %}>Dell</option>
+                                <option value="hp" {% if form_data.company == 'hp' %}selected{% endif %}>HP</option>
+                                <option value="lenovo" {% if form_data.company == 'lenovo' %}selected{% endif %}>Lenovo</option>
+                                <option value="msi" {% if form_data.company == 'msi' %}selected{% endif %}>MSI</option>
+                                <option value="toshiba" {% if form_data.company == 'toshiba' %}selected{% endif %}>Toshiba</option>
+                                <option value="other" {% if form_data.company == 'other' %}selected{% endif %}>Other (Samsung, Razer, Microsoft, etc.)</option>
+                            </select>
+                            <span class="form-hint">Manufacturer of the laptop chassis</span>
+                        </div>
+
+                        <!-- Form Factor / Type -->
+                        <div class="form-group">
+                            <label for="typename" class="form-label">Chassis Category <span class="required">*</span></label>
+                            <select name="typename" id="typename" class="form-control" required>
+                                <option value="" disabled {% if not form_data.typename %}selected{% endif %}>Select category</option>
+                                <option value="notebook" {% if form_data.typename == 'notebook' %}selected{% endif %}>Notebook (Standard)</option>
+                                <option value="ultrabook" {% if form_data.typename == 'ultrabook' %}selected{% endif %}>Ultrabook (Slim & Portable)</option>
+                                <option value="gaming" {% if form_data.typename == 'gaming' %}selected{% endif %}>Gaming (High Performance)</option>
+                                <option value="2in1convertible" {% if form_data.typename == '2in1convertible' %}selected{% endif %}>2-in-1 Convertible (360° hinge)</option>
+                                <option value="workstation" {% if form_data.typename == 'workstation' %}selected{% endif %}>Workstation (Professional)</option>
+                                <option value="netbook" {% if form_data.typename == 'netbook' %}selected{% endif %}>Netbook (Compact/Budget)</option>
+                            </select>
+                            <span class="form-hint">Primary form factor of the device</span>
+                        </div>
+
+                        <!-- Processor (CPU) -->
+                        <div class="form-group">
+                            <label for="cpuname" class="form-label">Processor (CPU) <span class="required">*</span></label>
+                            <select name="cpuname" id="cpuname" class="form-control" required>
+                                <option value="" disabled {% if not form_data.cpuname %}selected{% endif %}>Select processor tier</option>
+                                <option value="intelcorei7" {% if form_data.cpuname == 'intelcorei7' %}selected{% endif %}>Intel Core i7</option>
+                                <option value="intelcorei5" {% if form_data.cpuname == 'intelcorei5' %}selected{% endif %}>Intel Core i5</option>
+                                <option value="intelcorei3" {% if form_data.cpuname == 'intelcorei3' %}selected{% endif %}>Intel Core i3</option>
+                                <option value="amd" {% if form_data.cpuname == 'amd' %}selected{% endif %}>AMD Processor (Ryzen / A-Series)</option>
+                                <option value="other" {% if form_data.cpuname == 'other' %}selected{% endif %}>Other (Core M, Celeron, Pentium, Xeon)</option>
+                            </select>
+                            <span class="form-hint">Central processing unit family</span>
+                        </div>
+
+                        <!-- Graphics (GPU) -->
+                        <div class="form-group">
+                            <label for="gpuname" class="form-label">Graphics Architecture (GPU) <span class="required">*</span></label>
+                            <select name="gpuname" id="gpuname" class="form-control" required>
+                                <option value="" disabled {% if not form_data.gpuname %}selected{% endif %}>Select graphics vendor</option>
+                                <option value="intel" {% if form_data.gpuname == 'intel' %}selected{% endif %}>Intel (Integrated HD/UHD/Iris)</option>
+                                <option value="nvidia" {% if form_data.gpuname == 'nvidia' %}selected{% endif %}>Nvidia (GeForce / Quadro)</option>
+                                <option value="amd" {% if form_data.gpuname == 'amd' %}selected{% endif %}>AMD (Radeon Graphics)</option>
+                            </select>
+                            <span class="form-hint">Dedicated or integrated graphics provider</span>
+                        </div>
+
+                        <!-- System RAM -->
+                        <div class="form-group">
+                            <label for="ram" class="form-label">RAM (GB) <span class="required">*</span></label>
+                            <input type="number" name="ram" id="ram" class="form-control" min="2" max="128" step="1" value="{{ form_data.ram }}" placeholder="e.g. 8, 16, 32" required>
+                            <span class="form-hint">System memory capacity in gigabytes</span>
+                        </div>
+
+                        <!-- Weight -->
+                        <div class="form-group">
+                            <label for="weight" class="form-label">Weight (kg) <span class="required">*</span></label>
+                            <input type="number" name="weight" id="weight" class="form-control" min="0.5" max="10.0" step="0.01" value="{{ form_data.weight }}" placeholder="e.g. 1.80" required>
+                            <span class="form-hint">Approximate laptop weight in kilograms</span>
+                        </div>
+
+                        <!-- Operating System -->
+                        <div class="form-group">
+                            <label for="opsys" class="form-label">Operating System <span class="required">*</span></label>
+                            <select name="opsys" id="opsys" class="form-control" required>
+                                <option value="" disabled {% if not form_data.opsys %}selected{% endif %}>Select operating system</option>
+                                <option value="windows" {% if form_data.opsys == 'windows' %}selected{% endif %}>Windows (10 / 11)</option>
+                                <option value="mac" {% if form_data.opsys == 'mac' %}selected{% endif %}>macOS / Mac OS X</option>
+                                <option value="linux" {% if form_data.opsys == 'linux' %}selected{% endif %}>Linux</option>
+                                <option value="other" {% if form_data.opsys == 'other' %}selected{% endif %}>Other / No OS (FreeDOS)</option>
+                            </select>
+                            <span class="form-hint">Pre-installed software environment</span>
+                        </div>
+
+                        <!-- Display Attributes (Checkboxes) -->
+                        <div class="form-group">
+                            <label class="form-label">Display Features</label>
+                            <div class="checkbox-group">
+                                <label class="checkbox-label" for="ips">
+                                    <input type="checkbox" name="ips" id="ips" class="checkbox-input" {% if form_data.ips %}checked{% endif %}>
+                                    IPS Display Panel
+                                </label>
+                                <label class="checkbox-label" for="touchscreen">
+                                    <input type="checkbox" name="touchscreen" id="touchscreen" class="checkbox-input" {% if form_data.touchscreen %}checked{% endif %}>
+                                    Touchscreen Support
+                                </label>
+                            </div>
+                            <span class="form-hint">Optional screen panel capabilities</span>
+                        </div>
+
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary" id="estimate-submit-btn">Estimate price</button>
+                        <a href="/reset" class="btn btn-secondary" id="reset-btn">Reset fields</a>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Project Details / About Section -->
+            <section class="info-section" id="about">
+                <div class="section-header">
+                    <h2 class="section-title">About this project</h2>
+                    <p class="section-desc">Technical overview and modeling methodology for presentation and review.</p>
+                </div>
+
+                <div class="info-grid">
+                    <!-- Card 1: Machine Learning Model -->
+                    <div class="info-card">
+                        <div class="info-card-header">
+                            <div class="info-card-icon">ML</div>
+                            <h3 class="info-card-title">Model Architecture</h3>
+                        </div>
+                        <div class="info-card-body">
+                            The application uses a trained <strong>Random Forest Regressor</strong> (50 decision trees) built with <code>scikit-learn</code>.
+                            <ul class="info-card-list">
+                                <li>Supervised regression workflow</li>
+                                <li>Hyperparameters tuned via <code>GridSearchCV</code></li>
+                                <li>Achieved an R² validation score of ~71.6%</li>
+                                <li>Outperformed Linear Regression and Decision Trees</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Card 2: Dataset & Features -->
+                    <div class="info-card">
+                        <div class="info-card-header">
+                            <div class="info-card-icon">DS</div>
+                            <h3 class="info-card-title">Dataset & Features</h3>
+                        </div>
+                        <div class="info-card-body">
+                            Trained on <strong>1,303 laptop configurations</strong> extracted from European retail listings with target variable in Euros (<code>Price_euros</code>).
+                            <ul class="info-card-list">
+                                <li>31 numerical and one-hot encoded features</li>
+                                <li>Engineered features for IPS and Touchscreen</li>
+                                <li>Categorical mapping for brand, CPU, GPU, OS, and form factor</li>
+                                <li>Mean dataset price: €1,123.69 (range: €174 – €6,099)</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Card 3: Scope & Limitations -->
+                    <div class="info-card">
+                        <div class="info-card-header">
+                            <div class="info-card-icon">EX</div>
+                            <h3 class="info-card-title">Scope & Limitations</h3>
+                        </div>
+                        <div class="info-card-body">
+                            The model output is a <strong>statistical baseline estimate</strong>, not a guaranteed resale quotation.
+                            <ul class="info-card-list">
+                                <li>Reflects listed catalog retail prices in Euros (€)</li>
+                                <li>Does not factor in physical cosmetic condition or wear</li>
+                                <li>Does not include battery degradation or device age</li>
+                                <li>Intended for academic demonstration and hardware benchmarking</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- Site Footer -->
+    <footer class="site-footer">
+        <div class="container footer-inner">
+            <p>LaptopValue &mdash; Educational Machine Learning Project for Academic Presentation</p>
+            <div class="footer-badges">
+                <span class="footer-badge">Python 3.14</span>
+                <span class="footer-badge">Scikit-Learn 1.9</span>
+                <span class="footer-badge">Flask 3.1</span>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>
